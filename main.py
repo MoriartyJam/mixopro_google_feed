@@ -9,12 +9,12 @@ GOOGLE_NS = "http://base.google.com/ns/1.0"
 NS = {"g": GOOGLE_NS}
 FEED_CONFIG = {
     "en": {
-        "source_url": "https://mixopro.store/pages/google-feed-bundles-fr",
+        "source_url": "https://mixopro.store/pages/google-feed-bundles-en",
         "title": "Mixopro Google Feed(En)",
         "description": "Product feed in English for Mixopro",
     },
     "fr": {
-        "source_url": "https://mixopro.store/fr/pages/google-feed-bundles-en",
+        "source_url": "https://mixopro.store/fr/pages/google-feed-bundles-fr",
         "title": "Mixopro Google Feed(Fr)",
         "description": "Product feed in French for Mixopro",
     },
