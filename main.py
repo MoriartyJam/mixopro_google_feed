@@ -1,5 +1,6 @@
 import re
 import xml.etree.ElementTree as ET
+from urllib.parse import urlsplit, urlunsplit
 from flask import Flask, Response
 import requests
 
@@ -99,6 +100,21 @@ def extract_items(raw_text: str):
         return extract_items_with_regex(raw_text)
 
 
+def normalize_product_link(link: str) -> str:
+    if not link:
+        return link
+
+    parsed = urlsplit(link)
+    normalized_path = re.sub(r"^/(fr|en)/\1(/|$)", r"/\1\2", parsed.path, flags=re.IGNORECASE)
+    return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, parsed.query, parsed.fragment))
+
+
+def normalize_items(items):
+    for item in items:
+        item["link"] = normalize_product_link(item.get("link", ""))
+    return items
+
+
 def append_if_present(parent: ET.Element, tag: str, value: str):
     if value:
         child = ET.SubElement(parent, f"{{{GOOGLE_NS}}}{tag}")
@@ -132,6 +148,7 @@ def generate_feed(lang: str):
     response.raise_for_status()
 
     items = extract_items(response.text)
+    items = normalize_items(items)
     xml_feed = build_google_feed_xml(
         items=items,
         title=config["title"],
