@@ -8,6 +8,18 @@ app = Flask(__name__)
 
 GOOGLE_NS = "http://base.google.com/ns/1.0"
 NS = {"g": GOOGLE_NS}
+ITEM_FIELDS = (
+    "id",
+    "title",
+    "description",
+    "link",
+    "image_link",
+    "availability",
+    "price",
+    "condition",
+    "brand",
+    "identifier_exists",
+)
 FEED_CONFIG = {
     "en": {
         "source_url": "https://mixopro.store/pages/google-feed-bundles-en",
@@ -18,6 +30,11 @@ FEED_CONFIG = {
         "source_url": "https://mixopro.store/fr/pages/google-feed-bundles-fr",
         "title": "Mixopro Google Feed(Fr)",
         "description": "Product feed in French for Mixopro",
+    },
+    "products_en": {
+        "source_url": "https://mixopro.store/pages/google-feed-en",
+        "title": "Mixopro Google Feed Products(En)",
+        "description": "Product feed in English for Mixopro products",
     },
 }
 HEADERS = {
@@ -54,16 +71,7 @@ def extract_items_with_xml(raw_text: str):
     items = []
 
     for node in root.findall("./channel/item"):
-        items.append(
-            {
-                "id": get_item_field_xml(node, "id"),
-                "title": get_item_field_xml(node, "title"),
-                "price": get_item_field_xml(node, "price"),
-                "availability": get_item_field_xml(node, "availability"),
-                "link": get_item_field_xml(node, "link"),
-                "image_link": get_item_field_xml(node, "image_link"),
-            }
-        )
+        items.append({field: get_item_field_xml(node, field) for field in ITEM_FIELDS})
 
     return items
 
@@ -79,16 +87,7 @@ def extract_items_with_regex(raw_text: str):
         return re.sub(r"<!\[CDATA\[(.*?)\]\]>", r"\1", match.group(1)).strip() if match else ""
 
     for block in item_blocks:
-        items.append(
-            {
-                "id": get_tag(block, "g:id"),
-                "title": get_tag(block, "g:title"),
-                "price": get_tag(block, "g:price"),
-                "availability": get_tag(block, "g:availability"),
-                "link": get_tag(block, "g:link"),
-                "image_link": get_tag(block, "g:image_link"),
-            }
-        )
+        items.append({field: get_tag(block, f"g:{field}") for field in ITEM_FIELDS})
 
     return items
 
@@ -132,12 +131,8 @@ def build_google_feed_xml(items, title: str, link: str, description: str) -> str
 
     for item in items:
         item_node = ET.SubElement(channel, "item")
-        append_if_present(item_node, "id", item.get("id", ""))
-        append_if_present(item_node, "title", item.get("title", ""))
-        append_if_present(item_node, "price", item.get("price", ""))
-        append_if_present(item_node, "availability", item.get("availability", ""))
-        append_if_present(item_node, "link", item.get("link", ""))
-        append_if_present(item_node, "image_link", item.get("image_link", ""))
+        for field in ITEM_FIELDS:
+            append_if_present(item_node, field, item.get(field, ""))
 
     return ET.tostring(rss, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
@@ -166,6 +161,11 @@ def google_feed_en():
 @app.route("/google-feed-fr")
 def google_feed_fr():
     return generate_feed("fr")
+
+
+@app.route("/facebook-feed-products-en")
+def facebook_feed_products_en():
+    return generate_feed("products_en")
 
 
 if __name__ == "__main__":
