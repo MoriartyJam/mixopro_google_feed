@@ -36,6 +36,11 @@ FEED_CONFIG = {
         "title": "Mixopro Google Feed Products(En)",
         "description": "Product feed in English for Mixopro products",
     },
+    "products_fr": {
+        "source_url": "https://mixopro.store/pages/google-feed-fr",
+        "title": "Mixopro Google Feed Products(Fr)",
+        "description": "Product feed in French for Mixopro products",
+    },
 }
 HEADERS = {
     "User-Agent": (
@@ -166,6 +171,11 @@ def google_feed_fr():
 @app.route("/facebook-feed-products-en")
 def facebook_feed_products_en():
     return generate_feed("products_en")
+
+
+@app.route("/facebook-feed-products-fr")
+def facebook_feed_products_fr():
+    return generate_feed("products_fr")
 
 
 if __name__ == "__main__":
