@@ -37,7 +37,7 @@ FEED_CONFIG = {
         "description": "Product feed in English for Mixopro products",
     },
     "products_fr": {
-        "source_url": "https://mixopro.store/pages/google-feed-fr",
+        "source_url": "https://mixopro.store/fr/pages/google-feed-fr",
         "title": "Mixopro Google Feed Products(Fr)",
         "description": "Product feed in French for Mixopro products",
     },
