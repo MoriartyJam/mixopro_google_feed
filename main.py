@@ -44,8 +44,14 @@ FEED_CONFIG = {
 }
 HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (compatible; GoogleFeedBuilder/1.0; +https://mixopro.store)"
-    )
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,fr;q=0.8",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Referer": "https://mixopro.store/",
 }
 
 
@@ -142,10 +148,26 @@ def build_google_feed_xml(items, title: str, link: str, description: str) -> str
     return ET.tostring(rss, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
 
+def build_error_xml(message: str, source_url: str) -> str:
+    root = ET.Element("error")
+    ET.SubElement(root, "message").text = message
+    ET.SubElement(root, "source_url").text = source_url
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+
 def generate_feed(lang: str):
     config = FEED_CONFIG[lang]
-    response = requests.get(config["source_url"], headers=HEADERS, timeout=60)
-    response.raise_for_status()
+    try:
+        response = requests.get(config["source_url"], headers=HEADERS, timeout=60)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        status_code = exc.response.status_code if exc.response is not None else 502
+        message = f"Upstream feed request failed: {exc}"
+        return Response(
+            build_error_xml(message, config["source_url"]),
+            status=502 if status_code >= 500 else status_code,
+            mimetype="application/xml",
+        )
 
     items = extract_items(response.text)
     items = normalize_items(items)
@@ -179,4 +201,4 @@ def facebook_feed_products_fr():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8000, debug=False)
