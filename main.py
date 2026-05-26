@@ -1,5 +1,6 @@
 import re
 import xml.etree.ElementTree as ET
+from collections import Counter
 from urllib.parse import urlsplit, urlunsplit
 from flask import Flask, Response
 import requests
@@ -35,11 +36,13 @@ FEED_CONFIG = {
         "source_url": "https://mixopro.store/pages/google-feed-en",
         "title": "Mixopro Google Feed Products(En)",
         "description": "Product feed in English for Mixopro products",
+        "exclude_duplicate_images": True,
     },
     "products_fr": {
         "source_url": "https://mixopro.store/fr/pages/google-feed-fr",
         "title": "Mixopro Google Feed Products(Fr)",
         "description": "Product feed in French for Mixopro products",
+        "exclude_duplicate_images": True,
     },
 }
 HEADERS = {
@@ -125,6 +128,15 @@ def normalize_items(items):
     return items
 
 
+def exclude_items_with_duplicate_images(items):
+    image_counts = Counter(item.get("image_link", "") for item in items)
+    return [
+        item
+        for item in items
+        if not item.get("image_link") or image_counts[item.get("image_link", "")] == 1
+    ]
+
+
 def append_if_present(parent: ET.Element, tag: str, value: str):
     if value:
         child = ET.SubElement(parent, f"{{{GOOGLE_NS}}}{tag}")
@@ -171,6 +183,9 @@ def generate_feed(lang: str):
 
     items = extract_items(response.text)
     items = normalize_items(items)
+    if config.get("exclude_duplicate_images"):
+        items = exclude_items_with_duplicate_images(items)
+
     xml_feed = build_google_feed_xml(
         items=items,
         title=config["title"],
