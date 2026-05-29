@@ -37,12 +37,14 @@ FEED_CONFIG = {
         "title": "Mixopro Google Feed Products(En)",
         "description": "Product feed in English for Mixopro products",
         "exclude_duplicate_images": True,
+        "prefix_item_ids": True,
     },
     "products_fr": {
         "source_url": "https://mixopro.store/fr/pages/google-feed-fr",
         "title": "Mixopro Google Feed Products(Fr)",
         "description": "Product feed in French for Mixopro products",
         "exclude_duplicate_images": True,
+        "prefix_item_ids": True,
     },
 }
 HEADERS = {
@@ -137,6 +139,14 @@ def exclude_items_with_duplicate_images(items):
     ]
 
 
+def prefix_item_ids(items):
+    for index, item in enumerate(items, start=1):
+        item_id = item.get("id", "")
+        if item_id:
+            item["id"] = f"{index}-{item_id}"
+    return items
+
+
 def append_if_present(parent: ET.Element, tag: str, value: str):
     if value:
         child = ET.SubElement(parent, f"{{{GOOGLE_NS}}}{tag}")
@@ -185,6 +195,8 @@ def generate_feed(lang: str):
     items = normalize_items(items)
     if config.get("exclude_duplicate_images"):
         items = exclude_items_with_duplicate_images(items)
+    if config.get("prefix_item_ids"):
+        items = prefix_item_ids(items)
 
     xml_feed = build_google_feed_xml(
         items=items,
