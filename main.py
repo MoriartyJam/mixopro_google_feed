@@ -17,6 +17,7 @@ ITEM_FIELDS = (
     "image_link",
     "availability",
     "price",
+    "sale_price",
     "condition",
     "brand",
     "identifier_exists",
