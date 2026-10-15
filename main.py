@@ -66,6 +66,8 @@ HEADERS = {
 CACHE_TTL_SECONDS = 15 * 60
 FEED_CACHE = {}
 CACHE_LOCK = threading.Lock()
+UPSTREAM_LOCK = threading.Lock()
+RETRY_DELAYS_SECONDS = (2, 5, 10)
 
 
 def extract_rss_fragment(raw_text: str) -> str:
@@ -185,6 +187,19 @@ def build_error_xml(message: str, source_url: str) -> str:
     return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
 
+def fetch_upstream(source_url: str):
+    response = None
+    for attempt in range(len(RETRY_DELAYS_SECONDS) + 1):
+        response = requests.get(source_url, headers=HEADERS, timeout=60)
+        if response.status_code != 429 or attempt == len(RETRY_DELAYS_SECONDS):
+            response.raise_for_status()
+            return response
+
+        time.sleep(RETRY_DELAYS_SECONDS[attempt])
+
+    return response
+
+
 def generate_feed(lang: str):
     config = FEED_CONFIG[lang]
     now = time.monotonic()
@@ -195,8 +210,9 @@ def generate_feed(lang: str):
             return Response(cached["xml"], mimetype="application/xml")
 
     try:
-        response = requests.get(config["source_url"], headers=HEADERS, timeout=60)
-        response.raise_for_status()
+        # Only one cold/expired feed refresh should hit Shopify at a time.
+        with UPSTREAM_LOCK:
+            response = fetch_upstream(config["source_url"])
     except requests.RequestException as exc:
         with CACHE_LOCK:
             cached = FEED_CACHE.get(lang)
@@ -256,4 +272,5 @@ def facebook_feed_products_fr():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=False)
+
 
