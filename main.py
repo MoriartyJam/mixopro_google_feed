@@ -1,4 +1,6 @@
 import re
+import threading
+import time
 import xml.etree.ElementTree as ET
 from collections import Counter
 from urllib.parse import urlsplit, urlunsplit
@@ -55,10 +57,15 @@ HEADERS = {
     ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9,fr;q=0.8",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
     "Referer": "https://mixopro.store/",
 }
+
+# Shopify may rate-limit the shared outbound IP used by the hosting provider.
+# Keep generated feeds in memory and reuse the last successful result when the
+# upstream store is temporarily unavailable.
+CACHE_TTL_SECONDS = 15 * 60
+FEED_CACHE = {}
+CACHE_LOCK = threading.Lock()
 
 
 def extract_rss_fragment(raw_text: str) -> str:
@@ -180,10 +187,26 @@ def build_error_xml(message: str, source_url: str) -> str:
 
 def generate_feed(lang: str):
     config = FEED_CONFIG[lang]
+    now = time.monotonic()
+
+    with CACHE_LOCK:
+        cached = FEED_CACHE.get(lang)
+        if cached and now - cached["created_at"] < CACHE_TTL_SECONDS:
+            return Response(cached["xml"], mimetype="application/xml")
+
     try:
         response = requests.get(config["source_url"], headers=HEADERS, timeout=60)
         response.raise_for_status()
     except requests.RequestException as exc:
+        with CACHE_LOCK:
+            cached = FEED_CACHE.get(lang)
+        if cached:
+            return Response(
+                cached["xml"],
+                mimetype="application/xml",
+                headers={"Warning": '110 - "Response is stale"'},
+            )
+
         status_code = exc.response.status_code if exc.response is not None else 502
         message = f"Upstream feed request failed: {exc}"
         return Response(
@@ -205,6 +228,9 @@ def generate_feed(lang: str):
         link=config["source_url"],
         description=config["description"],
     )
+    with CACHE_LOCK:
+        FEED_CACHE[lang] = {"xml": xml_feed, "created_at": time.monotonic()}
+
     return Response(xml_feed, mimetype="application/xml")
 
 
@@ -230,3 +256,4 @@ def facebook_feed_products_fr():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=False)
+
